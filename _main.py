@@ -1,152 +1,171 @@
-from PIL import Image
-import os, sys, time
-
-compress = True
-BrightnessMapping = 'luminosity'
-width = 3
+import random
+import time, os
 
 def clear():
     os.system('cls')
 
-def menu():
-    print('Ascii converter')
-    print('------------------------')
-    print('Options')
-    print('Convert')
-    print('Exit')
-    meen = input()
-    choices = {'convert':main, 'options': options, 'exit': leave}
-    try:
-        choices[meen]()
-    except KeyError:
-        print('not an option')
-        menu()
+DEAD = 0
+LIVE = 1
 
-def options():
-    global compress
-    global BrightnessMapping
-    global width
-    print('1 - Compress:', str(compress))
-    print('2 - Brightness Mapping:', BrightnessMapping)
-    print('3 - Width Multiplier:', str(width))
-    print('q - Return to menu')
-    option = {'1':compressoption, '2':mapping, '3':widthsetting, 'q':menu}
-    choice = input()
-    try:
-        option[choice]()
-    except KeyError:
-        print('not an option')
-        options()
+def random_state(width, height):
+    state = [DEAD, LIVE]
+    return [[random.choice(state) for _ in range(height)] for _ in range(width)]
 
-def widthsetting():
-    global width
-    new = input('Enter width')
-    try:
-        width = int(new)
-    except:
-        print('Please enter an integer')
+def render(board):
+    print('_' * ((len(board[0])+2)*2))
+
+    for i in board:
+        print('|', end ='')
+        for j in i:
+        
+            if j == 0:
+                print(' '*2, end = '')
+            else:
+                print(u"\u2588"*2, end = '')
+        print('|')
+    print('-'* ((len(board[0])+2)*2))
+
+def next_board_state(board):
+    width = len(board)
+    height = len(board[0])
+    new = random_state(width, height)
+
+    for i in range(width):
+        for j in range(height):
+            new[i][j] = new_cell(board, [i,j])
     
+    return new
 
-def mapping():
-    global BrightnessMapping
-    print('1 - Average')
-    print('2 - Lightness')
-    print('3 - Luminosity')
-    print('4 - Back')
-    choice = input()
-    mappingdict = {'1':'average', '2':'lightness', '3':'luminosity'}
-    if choice == '4':
-        options()
+def day_and_night(board):
+    width = len(board)
+    height = len(board[0])
+    new = random_state(width, height)
+
+    for i in range(width):
+        for j in range(height):
+            new[i][j] = day_cell(board, [i,j])
+    
+    return new
+
+def day_cell(board, cords):
+    width = len(board)
+    height = len(board[0])
+    x = cords[0]
+    y = cords[1]
+
+    neighbour_count = 0 
+    for i in range((x-1), (x+2)):
+        if i < 0 or i >= width: continue
+        for j in range((y-1), (y+2)):
+            if j < 0 or j >= height: continue
+            if i == x and j == y: continue
+            if board[i][j] == LIVE:
+                neighbour_count += 1
+    
+    lives = [3,6,7,8]
+    
+    if neighbour_count in lives:
+        return LIVE
     else:
-        try:
-            BrightnessMapping = mappingdict[choice]
-            options()
-        except KeyError:
-            print('not an option')
-            mapping()
+        return DEAD
+
+
+
+def new_cell(board, cords):
+    width = len(board)
+    height = len(board[0])
+    x = cords[0]
+    y = cords[1]
+
+    neighbour_count = 0 
+    for i in range((x-1), (x+2)):
+        if i < 0 or i >= width: continue
+        for j in range((y-1), (y+2)):
+            if j < 0 or j >= height: continue
+            if i == x and j == y: continue
+            if board[i][j] == LIVE:
+                neighbour_count += 1
+    
+    
+    
+    if board[x][y] == LIVE:
+        if neighbour_count <= 1:
+            return DEAD
+        elif neighbour_count <= 3:
+            return LIVE
+        else:
+            return DEAD
+    elif board[x][y] == DEAD:
+        if neighbour_count == 3:
+            return LIVE
+        else:
+            return DEAD
+
         
 
-def compressoption():
-    global compress
-    compress = input('Would you like the picture to be compressed?')
-    compress = compress.startswith('y')
-    options()
     
 
 
-def leave():
+
+start = random_state(30, 75)
+
+
+def run(start):
+    while True:
+        render(start)
+        start = next_board_state(start)
+        time.sleep(0.1)
+        clear()
+
+def run_day(start):
+    while True:
+        render(start)
+        start = day_and_night(start)
+        time.sleep(0.1)
+        clear()
+
+
+
+def load(filename):
+    with open(filename, 'r') as state:
+        init_state = state.read()
+    init_state = init_state.split('\n')
     
-    sys.exit()
+    for i in range(len(init_state)):
+        init_state[i] = list(init_state[i])
     
+    for i in range(len(init_state)):
+        for j in range(len(init_state[i])):
+            init_state[i][j] = int(init_state[i][j])
+    
+    return init_state
 
 def main():
-    global compress
-    global BrightnessMapping
-    global width
-    file = input('Enter filename\n')
-    outfile = input('Enter outfile name\n')
-    clear()
-    try:
-        img = Image.open(file)
-    except FileNotFoundError:
-        print('File was not found in the current directory')
-    except OSError:
-        print("That's not a picture file")
-        
-    if compress:
-        for i in range(10):
-            if img.width > 300:
-                
-                img = img.resize((round(img.width/2), round(img.height/2)))
-        
-    pixels = []
-    for i in range(img.height):
-        row = []
-        for j in range(img.width):
-            try:
-                r,b,g = img.getpixel((j,i))
-                if BrightnessMapping.lower() == 'average':
-                    value = round(((r+b+g)/3))
-                elif BrightnessMapping.lower() == 'lightness':
-                    value = (max(r,g,b)+min(r,g,b))/2
-                elif BrightnessMapping.lower() == 'luminosity':
-                    value = round(0.21*r + 0.72*g + 0.07*b)
-            except:
-                try:
-                    c,y,m,k = img.getpixel((j,i))
-                    value = round((c+y+m+k)/4)
-                except:
-                    value = img.getpixel((j,i))
-
-            row.append(value)
-        pixels.append(row)
-
-
-    characters = '`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$'[::-1]
-    unit = 255/len(characters)
-    AsciiArt = []
-    for x in range(len(pixels)):
-        row = []
-        for y in range(len(pixels[x])):
-            pixel = pixels[x][y]
-            scale = round(pixel/unit)
-            if scale == 65: scale = 64
-            letter = characters[scale]
-            row.append(letter)
-            
-        AsciiArt.append(row)
-
-    with open(outfile+'.txt', 'w') as output:
-        for x in range(len(AsciiArt)):
-            output.write('\n')
-            for y in range(len(AsciiArt[x])):
-                output.write(AsciiArt[x][y]*width)
-    print('exported to ' +outfile+'.txt')
-    menu()
+    print('''GAME OF LIFE
+------------
+--> soup
+--> day and night (dan)
+--> gospel glider gun (ggg)
+--> glider
+--> toad
+--> blinker''')
+    runner = input('> ')
+    if runner == 'soup':
+        state = random_state(35, 75)
+        run(state)
     
+    elif runner == 'dan':
+        state = random_state(35, 75)
+        run_day(state)
     
+    else:
+        try:
+            run(load(runner+'.txt'))
+        
+        except FileNotFoundError:
+            print('Not an option')
+            main()
 
-
-
-menu()
-
+if __name__ == "__main__":
+    main()
+    
